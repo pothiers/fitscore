@@ -11,6 +11,19 @@
 import os, sys, string, argparse, logging
 
 
+def swim_fs(d,t):
+    # perr=[ 26.60668929   2.47317076]
+    c1, c2 = [ 404.52241871,  -20.03321641]
+    return c1*d*d/t - c2
+
+def bike_fs(d,t):
+    c1, c2 = [ 13.69764397,   3.22730112]
+    return c1*d*d/t - c2
+
+def run_fs(d,t):
+    # perr=[ 0.7629971   0.49012066]
+    c1, c2 = [ 136.24096526,    8.32978179]
+    return c1*d*d/t - c2
 
 
 ## DOXYGEN documentation for a function.
