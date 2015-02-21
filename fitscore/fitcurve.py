@@ -1,7 +1,8 @@
 #! /usr/bin/env python3
 #
 # SCAFFOLDING.  Not needed for regular use.
-#
+# TODO: refactor so trivial to add new ACTIVITY
+
 import os, sys, string, argparse, logging
 
 
@@ -116,27 +117,71 @@ def duration(minutes):
     s = (seconds - h*60*60) % 60
     return('{:02d}:{:02d}:{:02d}'.format(h,m,s))
 
-def run_grade(outfile):
-    big = 1e9
+
+def read_expected(fname):
+    expected = dict() # dict['{d0},{d1},{t0},{t1}'] = pscore
+    with open(fname) as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            if row['P'] == '': continue
+            d0, d1,t0,t1,p = [float(row[k]) for k in ['D0','D1','T0','T1','P']]
+            if d0 == 0: continue
+            key = ('{:.1f}\t{:.1f}\t{}\t{}'
+                   .format(d0,d1,duration(t0),duration(t1)))
+            expected[key] = p
+    return expected
+
+
+def run_results(expected=None, results=None):
+    print('\nResults for: RUN (d0, d1, t0, t1, fscore)')
+    bigV = 12.0 # fasted speed to score (mph)
+    bigT = 9*60 # longest time running (minutes)
+    results = dict() # results['{d0},{d1},{t0},{t1}'] = fscore
+    ordered = list()
+
     # distance (=miles x 10)
-    for d10 in itertools.chain(range(10,50),
-                               range(50,100,5),
-                               range(100,270,10)):
-        d = d10/10.0
+    ll0 = [d/10 for d in itertools.chain(range(10,50),
+                                         range(50,100,5),
+                                         range(100,280,10))]
+    
+    for d0,d1 in itertools.zip_longest(ll0[:-1], itertools.islice(ll0,1,None)):
+        d = d0
         # slowest speeds: 0, 2, 3, 4, 5, 6, 7.5, 9, 10.5 
         # slowest speeds: 0,    3, 4, 5, 6, 7.5, 9, 10.5 (>= 2 miles)
         # max time (=seconds)
         if d < 2:        
-            v_list = [2, 3, 4, 5, 6, 7.5, 9, 10.5, big]  #mph
+            v_list = [2, 3, 4, 5, 6, 7.5, 9, 10.5, bigV]  #mph
         else:
-            v_list = [3, 4, 5, 6, 7.5, 9, 10.5, big]     
-        min_t = [60*d/v for v in v_list]
-        max_t = [big] + [t for t in min_t[:-1]]
-        print()
-        for (min,max) in zip(min_t, max_t):
-            print('{}\t{}\t{}'.format(d, duration(min), duration(max)))
-    
-def bike_grade(outfile):
+            v_list = [3, 4, 5, 6, 7.5, 9, 10.5, bigV]     
+        min_t = [60*d/v for v in v_list]  # minutes
+        max_t = [bigT] + [t for t in min_t[:-1]]
+        #!print()
+        for (t0,t1) in zip(min_t, max_t):
+            fscore = fs.run_fs(d, t0)
+            key = ('{:.1f}\t{:.1f}\t{}\t{}'
+                   .format(d0,d1,duration(t0),duration(t1)))
+            results[key] = fscore
+            score = 30*fscore/100
+            ordered.append(key)
+            #!print('{}\t{}\t{}\t{}\t{:.2f}'
+            #!      .format(d0, d1, duration(t0), duration(t1), score))
+    prev_d0 = None
+    for key in ordered:
+        d0,d1,t0,t1 = key.split()
+        if prev_d0 != d0:
+            print()
+        print('{:5.1f}  {:5.1f}  {}  {}   {:6.2f}  {:6.2f}'
+              .format(float(d0),
+                      float(d1),
+                      t0,
+                      t1,
+                      results[key],
+                      results[key]*30/100,
+                  ))
+        prev_d0 = d0
+        
+def bike_results(expected=None, results=None):
+    print('\nResults for: BIKE')
     big = 1e9
     for d in itertools.chain(range(2,30), range(30,105,5)):
         v_list = [10,15,20, big]
@@ -146,7 +191,8 @@ def bike_grade(outfile):
         for (min,max) in zip(min_t, max_t):
             print('{}\t{}\t{}'.format(d, duration(min), duration(max)))
 
-def swim_grade(outfile):
+def swim_results(expected=None, results=None):
+    print('\nResults for: SWIM')
     big = 1e9
     # distance (=yards)
     for d in itertools.chain(range(200,1900,50), range(1900,3001,100)):
@@ -164,9 +210,11 @@ def main():
         description='Grade fitness scores against expected',
         epilog='EXAMPLE: %(prog)s -a run scores.csv"'
         )
-    #!parser.add_argument('infile',  help='Input file',
-    #!                    type=argparse.FileType('r') )
-    parser.add_argument('--csvfile', help='Output scores in CSV',
+    parser.add_argument('-e', '--expected',
+                        help='Expected values (CSV format)',
+                        type=argparse.FileType('r') )
+    parser.add_argument('-o', '--out',
+                        help='Output scores (CSV format)',
                         type=argparse.FileType('w') )
     parser.add_argument('-a', '--activity', help='Type of activity',
                         choices=['run','swim','bike'],
@@ -194,11 +242,11 @@ def main():
 
 
     if args.activity == 'run':
-        run_grade(args.csvfile)
+        run_results(expected=args.expected, results=args.out)
     elif args.activity == 'swim':
-        swim_grade(args.csvfile)
+        swim_results(expected=args.expected, results=args.out)
     elif args.activity == 'bike':
-        bike_grade(args.csvfile)
+        bike_results(expected=args.expected, results=args.out)
 
 if __name__ == '__main__':
     main()
