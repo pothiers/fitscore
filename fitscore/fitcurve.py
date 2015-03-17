@@ -13,8 +13,13 @@ import numpy
 import os.path
 import itertools as it
 import decimal
+import matplotlib as plt
+import matplotlib.pylab as pl
 
 import fitscore as fs
+
+def plot_curve(xData,yData, ls, color=None,label='Data'):
+    pl.plot(xData, yData, ls, label=label)
 
 def tt_swim():
     fn = os.path.expanduser('~/sandbox/fitscore/daata/swim-dtp.csv')
@@ -32,6 +37,8 @@ def tt_run():
     fn = os.path.expanduser('~/sandbox/fitscore/data/run-dtp.csv')
     popt = get_params(fn,run_func, 12)
     print('val={}'.format(calc_value(run_func, 9.3, 100, popt)))
+    yCalc = run_func(x, *popt)
+    plot_curve(x,yCalc, label='Calculated Run Curve')
     return popt
     
 # In [165]: fitcurve.tt()
@@ -163,9 +170,12 @@ def print_results(ordered, results, expected):
 
 
     prev_d0 = None
+    yExpect = list()
+    yActual = list()
+    x = list()
     print('{:>5s} {:>5s}  {:>5s} {:>5s} | {:>6s}  |  {:>6s}'
           .format('D0','D1', 'T0', 'T1', 'Expect', 'Actual'))
-    for key in ordered:
+    for idx,key in enumerate(ordered):
         d0,d1,t0,t1 = key
         if prev_d0 != d0:
             print()
@@ -178,6 +188,17 @@ def print_results(ordered, results, expected):
                       results[key]*30/100,
                   ))
         prev_d0 = d0
+        x.append(idx)
+        yExpect.append(expected[key])
+        yActual.append(results[key]*30/100)
+        
+    pl.figure()
+    pl.hold(True)
+    plot_curve(x,yExpect, 'r.', label='Calculated Run Curve')
+    plot_curve(x,yActual, 'g.', label='Actual Run Curve')
+    pl.legend()
+    pl.show()
+
 
 def gen_index(activity):
     index_list = list()
@@ -206,9 +227,32 @@ def gen_index(activity):
                                    decimal.Decimal(round(t1,1))
                                ))
     elif activity == 'bike':
-        pass
+        bigV = 25.0 # fasted speed to score (mph)
+        bigT = 11*60 # longest time active (minutes)
+        ll0 = list(it.chain(range(2,30), range(30,105,5)))
+        for d0,d1 in it.zip_longest(ll0[:-1], it.islice(ll0,1,None)):
+            v_list = [10,15,20, bigV]
+            min_t = [60*d/v for v in v_list]
+            max_t = [bigT] + [t for t in min_t[:-1]]
+            for (t0, t1) in zip(min_t, max_t):
+                index_list.append((decimal.Decimal(round(d0,1)),
+                                   decimal.Decimal(round(d1,1)),
+                                   decimal.Decimal(round(t0,1)),
+                                   decimal.Decimal(round(t1,1))
+                               ))
     elif activity == 'swim':
-        pass
+        bigV = 1e9 # fasted speed to score (years/hour)
+        # distance (=yards)
+        for d in it.chain(range(200,1900,50), range(1900,3001,100)):
+            v_list = [1800, 2400, 3600, bigV] # yards/hour
+            min_t = [60*d/v for v in v_list]
+            max_t = [big] + [t for t in min_t[:-1]]
+            for (t0, t1) in zip(min_t, max_t):
+                index_list.append((decimal.Decimal(round(d0,1)),
+                                   decimal.Decimal(round(d1,1)),
+                                   decimal.Decimal(round(t0,1)),
+                                   decimal.Decimal(round(t1,1))
+                               ))
     else:
         error('Unknown activity: {}'.format(activity))
 
@@ -226,46 +270,38 @@ def run_results(expected_file=None, results_file=None):
         (d0,d1,t0,t1) = key
         fscore = fs.run_fs(float(d0), float(t0))
         results[key] = fscore
-        score = 30*fscore/100
     print_results(keys, results, expected)
     return results
         
-def bike_results(expected=None, results=None):
+def bike_results(expected_file=None, results_file=None):
     print('\nResults for: BIKE')
+    if expected_file == None:
+        keys = gen_index('bike')
+    else:
+        expected,keys = read_expected(expected_file)
+
     results = dict() # results['{d0},{d1},{t0},{t1}'] = fscore
-    ordered = list()
-    bigV = 25.0 # fasted speed to score (mph)
-    bigT = 11*60 # longest time active (minutes)
+    for key in keys:
+        (d0,d1,t0,t1) = key
+        fscore = fs.bike_fs(float(d0), float(t0))
+        results[key] = fscore
+    print_results(keys, results, expected)
+    return results
 
-    ll0 = list(it.chain(range(2,30), range(30,105,5)))
-    for d0,d1 in it.zip_longest(ll0[:-1], it.islice(ll0,1,None)):
-        d = d0
-        v_list = [10,15,20, bigV]
-        min_t = [60*d/v for v in v_list]
-        max_t = [bigT] + [t for t in min_t[:-1]]
-        #!print()
-        for (t0, t1) in zip(min_t, max_t):
-            fscore = fs.run_fs(d, t0)
-            key = ('{:.1f}\t{:.1f}\t{}\t{}'
-                   .format(d0,d1,duration(t0),duration(t1)))
-            results[key] = fscore
-            score = 30*fscore/100
-            ordered.append(key)
-            #! print('{}\t{}\t{}'.format(d, duration(min), duration(max)))
-    print_results(ordered, results)
-
-def swim_results(expected=None, results=None):
+def swim_results(expected_file=None, results_file=None):
     print('\nResults for: SWIM')
-    big = 1e9
-    # distance (=yards)
-    for d in it.chain(range(200,1900,50), range(1900,3001,100)):
-        v_list = [1800, 2400, 3600, big] # yards/hour
-        min_t = [60*d/v for v in v_list]
-        max_t = [big] + [t for t in min_t[:-1]]
-        print()
-        for (min,max) in zip(min_t, max_t):
-            print('{}\t{}\t{}'.format(d, duration(min), duration(max)))
+    if expected_file == None:
+        keys = gen_index('swim')
+    else:
+        expected,keys = read_expected(expected_file)
 
+    results = dict() # results['{d0},{d1},{t0},{t1}'] = fscore
+    for key in keys:
+        (d0,d1,t0,t1) = key
+        fscore = fs.swim_fs(float(d0), float(t0))
+        results[key] = fscore
+    print_results(keys, results, expected)
+    return results
 
 def main():
     #!print('EXECUTING: {}\n\n'.format(' '.join(sys.argv)))
@@ -307,12 +343,13 @@ def main():
     if args.expected:
         args.expected.close()
         args.expected = args.expected.name
+
     if args.activity == 'run':
         run_results(expected_file=args.expected, results_file=args.out)
     elif args.activity == 'swim':
-        swim_results(expected=args.expected, results=args.out)
+        swim_results(expected_file=args.expected, results_file=args.out)
     elif args.activity == 'bike':
-        bike_results(expected=args.expected, results=args.out)
+        bike_results(expected_file=args.expected, results_file=args.out)
 
 if __name__ == '__main__':
     main()

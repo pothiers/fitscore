@@ -1,4 +1,5 @@
 *~
+*.out
 py_env/
 OBSOLETE/
 env-fitscore/
