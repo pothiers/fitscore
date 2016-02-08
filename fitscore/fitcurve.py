@@ -13,13 +13,13 @@ import numpy
 import os.path
 import itertools as it
 import decimal
-import matplotlib as plt
-import matplotlib.pylab as pl
+import matplotlib.pylab as plt
+#import matplotlib.pylab as pl
+from mpl_toolkits.mplot3d import Axes3D
 
 import fitscore as fs
 
-def plot_curve(xData,yData, ls, color=None,label='Data'):
-    pl.plot(xData, yData, ls, label=label)
+
 
 def tt_swim():
     fn = os.path.expanduser('~/sandbox/fitscore/daata/swim-dtp.csv')
@@ -38,7 +38,6 @@ def tt_run():
     popt = get_params(fn,run_func, 12)
     print('val={}'.format(calc_value(run_func, 9.3, 100, popt)))
     yCalc = run_func(x, *popt)
-    plot_curve(x,yCalc, label='Calculated Run Curve')
     return popt
     
 # In [165]: fitcurve.tt()
@@ -170,9 +169,10 @@ def print_results(ordered, results, expected):
 
 
     prev_d0 = None
-    yExpect = list()
-    yActual = list()
+    zExpect = list()
+    zActual = list()
     x = list()
+    y = list()
     print('{:>5s} {:>5s}  {:>5s} {:>5s} | {:>6s}  |  {:>6s}'
           .format('D0','D1', 'T0', 'T1', 'Expect', 'Actual'))
     for idx,key in enumerate(ordered):
@@ -188,16 +188,25 @@ def print_results(ordered, results, expected):
                       results[key]*30/100,
                   ))
         prev_d0 = d0
-        x.append(idx)
-        yExpect.append(expected[key])
-        yActual.append(results[key]*30/100)
+        x.append(float(d0))
+        y.append(float(t0))
+        zExpect.append(float(expected[key]))
+        zActual.append(float(results[key]*30/100))
         
-    pl.figure()
-    pl.hold(True)
-    plot_curve(x,yExpect, 'r.', label='Calculated Run Curve')
-    plot_curve(x,yActual, 'g.', label='Actual Run Curve')
-    pl.legend()
-    pl.show()
+    fig = plt.figure()
+    plt.hold(True)
+   
+    ax = fig.add_subplot(111,projection='3d')
+    plt.xlabel('Dist')
+    plt.ylabel('Time')
+    #!plt.zlabel('Pts')
+    #!ax.bar(x, y, zExpect, color='r', alpha=0.7)
+    ax.bar(x, y, zActual, color='g', alpha=0.7)
+
+    #!pl.plot(x, zExpect, 'r.', label='Calculated Run Curve')
+    #!pl.plot(x, zActual, 'g.', label='Actual Run Curve')
+    #!pl.legend()
+    plt.show()
 
 
 def gen_index(activity):
