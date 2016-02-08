@@ -4,6 +4,9 @@ py_env/
 OBSOLETE/
 env-fitscore/
 data/
+build-bundle/
+math.pybundle
+fitscore/tt
 
 
 # Byte-compiled / optimized / DLL files
