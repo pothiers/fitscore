@@ -2,7 +2,7 @@
 *.out
 py_env/
 OBSOLETE/
-env-fitscore/
+env_fitscore/
 data/
 build-bundle/
 math.pybundle
