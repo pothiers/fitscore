@@ -1,3 +1,5 @@
+*.db
+workouts.ipynb
 *~
 *.out
 py_env/
